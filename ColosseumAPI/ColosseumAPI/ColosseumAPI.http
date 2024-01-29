@@ -1,6 +1,0 @@
-@ColosseumAPI_HostAddress = http://localhost:5299
-
-GET {{ColosseumAPI_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
