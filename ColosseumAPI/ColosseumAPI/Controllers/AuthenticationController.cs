@@ -2,33 +2,36 @@
 using ColosseumAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
-[ApiController]
-[Route("[controller]")]
-public class AuthenticationController(IApplicationUserService applicationUserService) :ControllerBase
+namespace ColosseumAPI.Controllers
 {
-    private readonly IApplicationUserService _applicationUserService = applicationUserService;
-
-    [HttpPost("google-signin")]
-    public async Task<IActionResult> GoogleSignIn([FromBody] GoogleTokenDTO tokenDto)
+    [ApiController]
+    [Route("[controller]")]
+    public class AuthenticationController(IApplicationUserService applicationUserService) :ControllerBase
     {
-        if (string.IsNullOrWhiteSpace(tokenDto.Token)) {
-            return BadRequest("Token is required.");
+        private readonly IApplicationUserService _applicationUserService = applicationUserService;
+
+        [HttpPost("google-signin")]
+        public async Task<IActionResult> GoogleSignIn([FromBody] GoogleTokenDTO tokenDto)
+        {
+            if (string.IsNullOrWhiteSpace(tokenDto.Token)) {
+                return BadRequest("Token is required.");
+            }
+
+            var payload = await _applicationUserService.VerifyGoogleTokenAsync(tokenDto.Token);
+
+            if (payload == null) {
+                // Respond with an appropriate error message or status code
+                return Unauthorized("Invalid or expired Google token.");
+            }
+
+            var user = await _applicationUserService.AuthenticateOrRegisterUser(payload);
+            if (user == null) {
+                // Handle the case where user creation or lookup failed
+                return BadRequest("Failed to create or retrieve user.");
+            }
+
+            var jwtToken = _applicationUserService.GenerateJwtToken(user);
+            return Ok(new { Token = jwtToken });
         }
-
-        var payload = await _applicationUserService.VerifyGoogleTokenAsync(tokenDto.Token);
-
-        if (payload == null) {
-            // Respond with an appropriate error message or status code
-            return Unauthorized("Invalid or expired Google token.");
-        }
-
-        var user = await _applicationUserService.AuthenticateOrRegisterUser(payload);
-        if (user == null) {
-            // Handle the case where user creation or lookup failed
-            return BadRequest("Failed to create or retrieve user.");
-        }
-
-        var jwtToken = _applicationUserService.GenerateJwtToken(user);
-        return Ok(new { Token = jwtToken });
     }
 }
