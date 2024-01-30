@@ -2,7 +2,6 @@
 using ColosseumAPI.Repositories.Interfaces;
 using ColosseumAPI.Services.Interfaces;
 using Google.Apis.Auth;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -10,11 +9,40 @@ using System.Text;
 
 namespace ColosseumAPI.Services
 {
-    public class ApplicationUserService(IApplicationUserRepository applicationUserRepository, ILogger<ApplicationUserService> logger, IConfiguration configuration) :IApplicationUserService
+    public class ApplicationUserService :IApplicationUserService
     {
-        private readonly IApplicationUserRepository _applicationUserRepository = applicationUserRepository;
-        private readonly ILogger<ApplicationUserService> _logger = logger;
-        private readonly IConfiguration _configuration = configuration;
+        private readonly IApplicationUserRepository _applicationUserRepository;
+        private readonly ILogger<ApplicationUserService> _logger;
+        private readonly string? _issuer;
+        private readonly string? _audience;
+        private readonly string? _secretKey;
+        private readonly string? _googleClientId;
+
+        public ApplicationUserService(IApplicationUserRepository applicationUserRepository,
+                                      ILogger<ApplicationUserService> logger,
+                                      IConfiguration configuration)
+        {
+            _applicationUserRepository = applicationUserRepository;
+            _logger = logger;
+
+            _issuer = configuration["JwtSettings:Issuer"];
+            _audience = configuration["JwtSettings:Audience"];
+            _secretKey = configuration["JwtSettings:SecretKey"];
+            _googleClientId = configuration["GoogleAuthSettings:ClientId"];
+
+            if (string.IsNullOrEmpty(_issuer)) {
+                throw new InvalidOperationException("JWT Issuer is not configured properly in the settings.");
+            }
+            if (string.IsNullOrEmpty(_audience)) {
+                throw new InvalidOperationException("JWT Audience is not configured properly in the settings.");
+            }
+            if (string.IsNullOrEmpty(_secretKey)) {
+                throw new InvalidOperationException("JWT Secret Key is not configured properly.");
+            }
+            if (string.IsNullOrEmpty(_googleClientId)) {
+                throw new InvalidOperationException("Google Client ID is not configured properly.");
+            }
+        }
 
         public async Task<ApplicationUser> AuthenticateOrRegisterUser(GoogleJsonWebSignature.Payload payload)
         {
@@ -31,7 +59,7 @@ namespace ColosseumAPI.Services
 
         public string GenerateJwtToken(ApplicationUser user)
         {
-            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("Your_Secret_Key"));
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey!));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
             var claims = new[]
@@ -42,8 +70,8 @@ namespace ColosseumAPI.Services
             };
 
             var token = new JwtSecurityToken(
-                issuer: "your-issuer",
-                audience: "your-audience",
+                issuer: _issuer,
+                audience: _audience,
                 claims: claims,
                 expires: DateTime.Now.AddDays(7),
                 signingCredentials: credentials);
@@ -59,15 +87,8 @@ namespace ColosseumAPI.Services
         public async Task<GoogleJsonWebSignature.Payload?> VerifyGoogleTokenAsync(string token)
         {
             try {
-                var googleClientId = _configuration["GoogleAuthSettings:ClientId"];
-
-                if (string.IsNullOrEmpty(googleClientId)) {
-                    _logger.LogError("Google Client ID is not configured properly.");
-                    return null;
-                }
-
                 var settings = new GoogleJsonWebSignature.ValidationSettings() {
-                    Audience = new List<string>() { googleClientId }
+                    Audience = new List<string>() { _googleClientId! }
                 };
 
                 var payload = await GoogleJsonWebSignature.ValidateAsync(token, settings);
