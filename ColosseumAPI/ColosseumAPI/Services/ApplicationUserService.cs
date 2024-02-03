@@ -13,17 +13,20 @@ namespace ColosseumAPI.Services
     {
         private readonly IApplicationUserRepository _applicationUserRepository;
         private readonly ILogger<ApplicationUserService> _logger;
+        private readonly IGoogleTokenValidator _googleTokenValidator;
         private readonly string? _issuer;
         private readonly string? _audience;
         private readonly string? _secretKey;
         private readonly string? _googleClientId;
 
         public ApplicationUserService(IApplicationUserRepository applicationUserRepository,
-                                      ILogger<ApplicationUserService> logger,
-                                      IConfiguration configuration)
+                                 ILogger<ApplicationUserService> logger,
+                                 IConfiguration configuration,
+                                 IGoogleTokenValidator googleTokenValidator) // Add this parameter
         {
             _applicationUserRepository = applicationUserRepository;
             _logger = logger;
+            _googleTokenValidator = googleTokenValidator;
 
             _issuer = configuration["JwtSettings:Issuer"];
             _audience = configuration["JwtSettings:Audience"];
@@ -55,7 +58,7 @@ namespace ColosseumAPI.Services
                 await _applicationUserRepository.SaveChangesAsync();
             }
             return user;
-    }
+        }
 
         public string GenerateJwtToken(ApplicationUser user)
         {
@@ -87,12 +90,8 @@ namespace ColosseumAPI.Services
         public async Task<GoogleJsonWebSignature.Payload?> VerifyGoogleTokenAsync(string token)
         {
             try {
-                var settings = new GoogleJsonWebSignature.ValidationSettings() {
-                    Audience = new List<string>() { _googleClientId! }
-                };
-
-                var payload = await GoogleJsonWebSignature.ValidateAsync(token, settings);
-                return payload;
+                var settings = new GoogleJsonWebSignature.ValidationSettings { Audience = new List<string> { _googleClientId! } };
+                return await _googleTokenValidator.ValidateAsync(token, settings);
             }
             catch (InvalidJwtException ex) {
                 _logger.LogError(ex, "Invalid JWT encountered while verifying Google token.");
