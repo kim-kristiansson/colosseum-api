@@ -11,7 +11,7 @@ namespace ColosseumAPI.Controllers
         private readonly IApplicationUserService _applicationUserService = applicationUserService;
 
         [HttpPost("google-signin")]
-        public async Task<IActionResult> GoogleSignIn([FromForm] GoogleTokenDTO tokenDto)
+        public async Task<IActionResult> GoogleSignIn([FromBody] GoogleTokenDTO tokenDto)
         {
             if (string.IsNullOrWhiteSpace(tokenDto.Token)) {
                 return BadRequest("Token is required.");
