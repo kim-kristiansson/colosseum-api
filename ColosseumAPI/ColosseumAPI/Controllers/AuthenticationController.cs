@@ -18,20 +18,24 @@ namespace ColosseumAPI.Controllers
             }
 
             var payload = await _applicationUserService.VerifyGoogleTokenAsync(tokenDto.Token);
-
             if (payload == null) {
-                // Respond with an appropriate error message or status code
                 return Unauthorized("Invalid or expired Google token.");
             }
 
             var user = await _applicationUserService.AuthenticateOrRegisterUser(payload);
             if (user == null) {
-                // Handle the case where user creation or lookup failed
                 return BadRequest("Failed to create or retrieve user.");
             }
 
-            var jwtToken = _applicationUserService.GenerateJwtToken(user);
-            return Ok(new { Token = jwtToken });
+            var userResponse = new UserResponseDTO {
+                Id = user.Id,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Email = user.Email,
+                Token = _applicationUserService.GenerateJwtToken(user)
+            };
+
+            return Ok(userResponse);
         }
     }
 }
