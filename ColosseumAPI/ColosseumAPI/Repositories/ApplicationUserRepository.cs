@@ -20,6 +20,16 @@ namespace ColosseumAPI.Repositories
             return await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
         }
 
+        public async Task<ApplicationUser?> GetByRefreshTokenAsync(string refreshToken)
+        {
+            if (refreshToken == null)
+            {
+                return null;
+            }
+
+            return await _context.Users.FirstOrDefaultAsync(u => u.RefreshToken != null && u.RefreshToken.Token == refreshToken);
+        }
+
         public async Task<bool> SaveChangesAsync()
         {
             return await _context.SaveChangesAsync() > 0;

@@ -2,9 +2,11 @@
 using ColosseumAPI.Repositories.Interfaces;
 using ColosseumAPI.Services.Interfaces;
 using Google.Apis.Auth;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace ColosseumAPI.Services
@@ -13,7 +15,6 @@ namespace ColosseumAPI.Services
     {
         private readonly IApplicationUserRepository _applicationUserRepository;
         private readonly ILogger<ApplicationUserService> _logger;
-        private readonly IGoogleTokenValidator _googleTokenValidator;
         private readonly string? _issuer;
         private readonly string? _audience;
         private readonly string? _secretKey;
@@ -21,12 +22,10 @@ namespace ColosseumAPI.Services
 
         public ApplicationUserService(IApplicationUserRepository applicationUserRepository,
                                  ILogger<ApplicationUserService> logger,
-                                 IConfiguration configuration,
-                                 IGoogleTokenValidator googleTokenValidator) // Add this parameter
+                                 IConfiguration configuration)
         {
             _applicationUserRepository = applicationUserRepository;
             _logger = logger;
-            _googleTokenValidator = googleTokenValidator;
 
             _issuer = configuration["JwtSettings:Issuer"];
             _audience = configuration["JwtSettings:Audience"];
@@ -76,11 +75,39 @@ namespace ColosseumAPI.Services
                 issuer: _issuer,
                 audience: _audience,
                 claims: claims,
-                expires: DateTime.Now.AddDays(7),
+                expires: DateTime.Now.AddMinutes(30),
                 signingCredentials: credentials);
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
+
+        public RefreshToken GenerateRefreshToken()
+        {
+            var refreshToken = new RefreshToken {
+                Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
+                Expires = DateTime.Now.AddDays(7)
+            };
+
+            return refreshToken;
+        }
+
+        public IActionResult RefreshToken(ApplicationUser appUser)
+        {
+            if (appUser.RefreshToken == null) {
+                return new UnauthorizedObjectResult("Invalid Refresh Token");
+            }
+            else if (appUser.RefreshToken.Expires < DateTime.Now) {
+                return new UnauthorizedObjectResult("Refresh Token Expired");
+            }
+
+            string token = GenerateJwtToken(appUser);
+            var newRefreshToken = GenerateRefreshToken();
+
+            appUser.RefreshToken = newRefreshToken;
+
+            return new OkObjectResult(token);
+        }
+
 
         public Task<bool> SaveChangesAsync()
         {
@@ -91,7 +118,7 @@ namespace ColosseumAPI.Services
         {
             try {
                 var settings = new GoogleJsonWebSignature.ValidationSettings { Audience = new List<string> { _googleClientId! } };
-                return await _googleTokenValidator.ValidateAsync(token, settings);
+                return await GoogleJsonWebSignature.ValidateAsync(token, settings);
             }
             catch (InvalidJwtException ex) {
                 _logger.LogError(ex, "Invalid JWT encountered while verifying Google token.");
