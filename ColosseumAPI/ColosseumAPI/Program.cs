@@ -1,11 +1,11 @@
 using ColosseumAPI.Data;
 using ColosseumAPI.Models;
 using ColosseumAPI.Repositories.Interfaces;
-using ColosseumAPI.Repositories;
 using ColosseumAPI.Services.Interfaces;
 using ColosseumAPI.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using ColosseumAPI.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +20,7 @@ builder.Configuration.AddUserSecrets<Program>();
 
 builder.Services.AddScoped<IApplicationUserRepository, ApplicationUserRepository>();
 builder.Services.AddScoped<IApplicationUserService, ApplicationUserService>();
+builder.Services.AddScoped<ITokenService, TokenService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));

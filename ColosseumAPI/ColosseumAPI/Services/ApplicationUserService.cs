@@ -1,4 +1,5 @@
-﻿using ColosseumAPI.Models;
+﻿using ColosseumAPI.DTOs;
+using ColosseumAPI.Models;
 using ColosseumAPI.Repositories.Interfaces;
 using ColosseumAPI.Services.Interfaces;
 using Google.Apis.Auth;
@@ -15,32 +16,21 @@ namespace ColosseumAPI.Services
     {
         private readonly IApplicationUserRepository _applicationUserRepository;
         private readonly ILogger<ApplicationUserService> _logger;
-        private readonly string? _issuer;
-        private readonly string? _audience;
-        private readonly string? _secretKey;
+        private readonly ITokenService _tokenService;
+
         private readonly string? _googleClientId;
 
         public ApplicationUserService(IApplicationUserRepository applicationUserRepository,
                                  ILogger<ApplicationUserService> logger,
-                                 IConfiguration configuration)
+                                 IConfiguration configuration, 
+                                 ITokenService tokenService)
         {
             _applicationUserRepository = applicationUserRepository;
             _logger = logger;
+            _tokenService = tokenService;
 
-            _issuer = configuration["JwtSettings:Issuer"];
-            _audience = configuration["JwtSettings:Audience"];
-            _secretKey = configuration["JwtSettings:SecretKey"];
             _googleClientId = configuration["GoogleAuthSettings:ClientId"];
 
-            if (string.IsNullOrEmpty(_issuer)) {
-                throw new InvalidOperationException("JWT Issuer is not configured properly in the settings.");
-            }
-            if (string.IsNullOrEmpty(_audience)) {
-                throw new InvalidOperationException("JWT Audience is not configured properly in the settings.");
-            }
-            if (string.IsNullOrEmpty(_secretKey)) {
-                throw new InvalidOperationException("JWT Secret Key is not configured properly.");
-            }
             if (string.IsNullOrEmpty(_googleClientId)) {
                 throw new InvalidOperationException("Google Client ID is not configured properly.");
             }
@@ -59,55 +49,60 @@ namespace ColosseumAPI.Services
             return user;
         }
 
-        public string GenerateJwtToken(ApplicationUser user)
+        public async Task<UserResponseDTO> GoogleSignInAsync(string googleToken)
         {
-            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey!));
-            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+            if (string.IsNullOrWhiteSpace(googleToken)) {
+                throw new ArgumentException("Google token is required.", nameof(googleToken));
+            }
 
-            var claims = new[]
-            {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty)
-                // Additional claims
+            var payload = await VerifyGoogleTokenAsync(googleToken);
+
+            if (payload == null) {
+                throw new UnauthorizedAccessException("Invalid or expired Google token.");
+            }
+
+            var appUser = await AuthenticateOrRegisterUser(payload);
+
+            if (appUser == null) {
+                throw new InvalidOperationException("Failed to create or retrieve user.");
+            }
+
+            var refreshToken = _tokenService.GenerateRefreshToken();
+
+            return new UserResponseDTO {
+                Id = appUser.Id,
+                FirstName = appUser.FirstName,
+                LastName = appUser.LastName,
+                Email = appUser.Email,
+                Token = _tokenService.GenerateJwtToken(appUser),
+                RefreshToken = refreshToken
             };
-
-            var token = new JwtSecurityToken(
-                issuer: _issuer,
-                audience: _audience,
-                claims: claims,
-                expires: DateTime.Now.AddMinutes(30),
-                signingCredentials: credentials);
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        public RefreshToken GenerateRefreshToken()
-        {
-            var refreshToken = new RefreshToken {
-                Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
-                Expires = DateTime.Now.AddDays(7)
-            };
-
-            return refreshToken;
-        }
-
-        public IActionResult RefreshToken(ApplicationUser appUser)
+        public UserResponseDTO RefreshToken(ApplicationUser appUser)
         {
             if (appUser.RefreshToken == null) {
-                return new UnauthorizedObjectResult("Invalid Refresh Token");
+                throw new UnauthorizedAccessException("Invalid Refresh Token");
             }
-            else if (appUser.RefreshToken.Expires < DateTime.Now) {
-                return new UnauthorizedObjectResult("Refresh Token Expired");
+            
+            if (appUser.RefreshToken.Expires < DateTime.Now) {
+                throw new UnauthorizedAccessException("Refresh Token Expired");
             }
 
-            string token = GenerateJwtToken(appUser);
-            var newRefreshToken = GenerateRefreshToken();
+            string token = _tokenService.GenerateJwtToken(appUser);
+            var newRefreshToken = _tokenService.GenerateRefreshToken();
 
             appUser.RefreshToken = newRefreshToken;
 
-            return new OkObjectResult(token);
+            return new UserResponseDTO {
+                Id = appUser.Id,
+                FirstName = appUser.FirstName,
+                LastName = appUser.LastName,
+                Email = appUser.Email,
+                Token = token,
+                RefreshToken = newRefreshToken
+            };
         }
-
 
         public Task<bool> SaveChangesAsync()
         {

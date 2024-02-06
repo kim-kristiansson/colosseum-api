@@ -10,58 +10,65 @@ namespace ColosseumAPI.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class AuthenticationController(IApplicationUserService applicationUserService, IApplicationUserRepository applicationUserRepository) :ControllerBase
+    public class AuthenticationController(IApplicationUserService applicationUserService, IApplicationUserRepository applicationUserRepository, ILogger<AuthenticationController> logger) :ControllerBase
     {
         private readonly IApplicationUserService _applicationUserService = applicationUserService;
         private readonly IApplicationUserRepository _applicationUserRepository = applicationUserRepository;
+        private readonly ILogger<AuthenticationController> _logger = logger;   
 
         [HttpPost("google-signin")]
         public async Task<IActionResult> GoogleSignIn([FromBody] GoogleTokenDTO tokenDto)
         {
-            if (string.IsNullOrWhiteSpace(tokenDto.Token)) {
-                return BadRequest("Token is required.");
+            try {
+                if (string.IsNullOrWhiteSpace(tokenDto.Token)) {
+                    return BadRequest("Token is required.");
+                }
+
+                var appUserResponse = await _applicationUserService.GoogleSignInAsync(tokenDto.Token);
+                return Ok(appUserResponse);
             }
-
-            var payload = await _applicationUserService.VerifyGoogleTokenAsync(tokenDto.Token);
-            if (payload == null) {
-                return Unauthorized("Invalid or expired Google token.");
+            catch (ArgumentException ex) {
+                return BadRequest(ex.Message);
             }
-
-            var appUser = await _applicationUserService.AuthenticateOrRegisterUser(payload);
-            if (appUser == null) {
-                return BadRequest("Failed to create or retrieve user.");
+            catch (UnauthorizedAccessException ex) {
+                return Unauthorized(ex.Message);
             }
+            catch (InvalidOperationException ex) {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "An error occurred.");
 
-            var refreshToken = _applicationUserService.GenerateRefreshToken();
-
-            var appUserResponse = new UserResponseDTO {
-                Id = appUser.Id,
-                FirstName = appUser.FirstName,
-                LastName = appUser.LastName,
-                Email = appUser.Email,
-                Token = _applicationUserService.GenerateJwtToken(appUser),
-                RefreshToken = refreshToken
-            };
-
-
-            return Ok(appUserResponse);
+                return StatusCode(500, "An error occurred. Please try again later.");
+            }
         }
 
         [HttpPost("refresh-token")]
         public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDTO refreshTokenRequest)
         {
-            if (string.IsNullOrEmpty(refreshTokenRequest.Token))
-            {
-                return BadRequest("Refresh token is required.");
+            try {
+                if (string.IsNullOrWhiteSpace(refreshTokenRequest.Token)) {
+                    return BadRequest("Refresh token is required.");
+                }
+
+                var appUser = await _applicationUserRepository.GetByRefreshTokenAsync(refreshTokenRequest.Token);
+
+                if (appUser == null) {
+                    return Unauthorized("User not found or invalid refresh token.");
+                }
+
+                var userResponse = _applicationUserService.RefreshToken(appUser);
+                return Ok(userResponse);
             }
-
-            var appUser = await _applicationUserRepository.GetByRefreshTokenAsync(refreshTokenRequest.Token);
-
-            if (appUser == null) {
-                return Unauthorized("User not found or invalid refresh token.");
+            catch (UnauthorizedAccessException ex) {
+                return Unauthorized(ex.Message);
             }
+            catch (Exception ex) {
+                _logger.LogError(ex, "An error occurred.");
 
-            return _applicationUserService.RefreshToken(appUser);
+                return StatusCode(500, "An error occurred. Please try again later.");
+            }
         }
+
     }
 }

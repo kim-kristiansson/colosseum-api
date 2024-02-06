@@ -6,6 +6,7 @@ namespace ColosseumAPI.Repositories.Interfaces
     {
         Task AddAsync(ApplicationUser user);
         Task<ApplicationUser?> GetByEmailAsync(string email);
+        Task<ApplicationUser?> GetByRefreshTokenAsync(string refreshToken);
         Task<bool> SaveChangesAsync();
     }
 }
