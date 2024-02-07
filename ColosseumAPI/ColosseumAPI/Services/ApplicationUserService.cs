@@ -32,6 +32,7 @@ namespace ColosseumAPI.Services
             _googleClientId = configuration["GoogleAuthSettings:ClientId"];
 
             if (string.IsNullOrEmpty(_googleClientId)) {
+                _logger.LogError("Google Client ID is not configured properly.");
                 throw new InvalidOperationException("Google Client ID is not configured properly.");
             }
         }
@@ -117,12 +118,14 @@ namespace ColosseumAPI.Services
             }
             catch (InvalidJwtException ex) {
                 _logger.LogError(ex, "Invalid JWT encountered while verifying Google token.");
-                return null;
+            }
+            catch (HttpRequestException ex) {
+                _logger.LogError(ex, "Network error occurred while verifying Google token.");
             }
             catch (Exception ex) {
-                _logger.LogError(ex, "Error occurred while verifying Google token.");
-                return null;
+                _logger.LogError(ex, "Unexpected error occurred while verifying Google token.");
             }
+            return null;
         }
     }
 }
