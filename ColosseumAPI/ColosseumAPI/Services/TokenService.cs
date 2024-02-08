@@ -40,7 +40,7 @@ namespace ColosseumAPI.Services
             }
         }
 
-        public string GenerateJwtToken(ApplicationUser appUser)
+        string GenerateAccessToken(ApplicationUser appUser)
         {
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey!));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
@@ -62,14 +62,38 @@ namespace ColosseumAPI.Services
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        public RefreshToken GenerateRefreshToken()
+        string GenerateRefreshToken(ApplicationUser appUser)
         {
-            var refreshToken = new RefreshToken {
-                Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
-                Expires = DateTime.Now.AddDays(7)
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey!));
+            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+            var claims = new[]
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, appUser.Id.ToString()),
             };
 
-            return refreshToken;
+            var token = new JwtSecurityToken(
+                issuer: _issuer,
+                audience: _audience,
+                claims: claims,
+                expires: DateTime.Now.AddDays(7),
+                signingCredentials: credentials);
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        string HashRefreshToken(string token)
+        {
+            var hashedBytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+            return BitConverter.ToString(hashedBytes).Replace("-", "").ToLowerInvariant();
+        }
+
+        public TokenPayload IssueTokens(ApplicationUser appUser)
+        {
+            return new TokenPayload {
+                AccessToken = GenerateAccessToken(appUser),
+                RefreshToken = GenerateRefreshToken(appUser)
+            };
         }
     }
 }
