@@ -21,6 +21,8 @@ builder.Services.AddSwaggerGen();
 
 builder.Configuration.AddUserSecrets<Program>();
 
+builder.Services.AddMemoryCache();
+
 builder.Services.AddSingleton<ConnectionMultiplexer>(sp => {
     var configuration = sp.GetRequiredService<IConfiguration>();
     var connectionString = configuration.GetConnectionString("Redis") ?? throw new InvalidOperationException("Redis connection string is not configured.");

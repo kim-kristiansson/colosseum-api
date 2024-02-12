@@ -3,6 +3,7 @@ using ColosseumAPI.Models;
 using ColosseumAPI.Repositories.Interfaces;
 using ColosseumAPI.Services;
 using ColosseumAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 
@@ -14,7 +15,7 @@ namespace ColosseumAPI.Controllers
     {
         private readonly IApplicationUserService _applicationUserService = applicationUserService;
         private readonly IApplicationUserRepository _applicationUserRepository = applicationUserRepository;
-        private readonly ILogger<AuthenticationController> _logger = logger;   
+        private readonly ILogger<AuthenticationController> _logger = logger;
 
         [HttpPost("google-signin")]
         public async Task<IActionResult> GoogleSignIn([FromBody] GoogleTokenDTO tokenDto)

@@ -20,7 +20,7 @@ namespace ColosseumAPI.Repositories
             return await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
         }
 
-        public async Task<ApplicationUser> GetByIdAsync(Guid appUserId)
+        public async Task<ApplicationUser> GetByIdAsync(string appUserId)
         {
             var user = await _context.ApplicationUsers
                                  .FirstOrDefaultAsync(u => u.Id == appUserId.ToString());
