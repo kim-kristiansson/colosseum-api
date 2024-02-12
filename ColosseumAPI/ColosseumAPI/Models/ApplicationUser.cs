@@ -6,6 +6,5 @@ namespace ColosseumAPI.Models
     {
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
-        public RefreshTokenMetaData? RefreshTokenMetaData { get; set; }
     }
 }

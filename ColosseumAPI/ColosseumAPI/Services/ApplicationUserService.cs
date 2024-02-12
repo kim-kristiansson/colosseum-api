@@ -3,6 +3,7 @@ using ColosseumAPI.Models;
 using ColosseumAPI.Repositories.Interfaces;
 using ColosseumAPI.Services.Interfaces;
 using Google.Apis.Auth;
+using Microsoft.IdentityModel.Tokens;
 namespace ColosseumAPI.Services
 {
     public class ApplicationUserService :IApplicationUserService
@@ -69,37 +70,40 @@ namespace ColosseumAPI.Services
                 LastName = appUser.LastName,
                 Email = appUser.Email,
                 AccessToken = tokenPayload.AccessToken,
-                RefreshToken = tokenPayload.RefreshToken.
+                RefreshToken = tokenPayload.RefreshToken
             };
         }
 
-        public UserResponseDTO RefreshToken(ApplicationUser appUser, string presentedRefreshToken)
+        public async Task<UserResponseDTO> RefreshToken(string refreshToken)
         {
-            var hashedPresentedToken = _tokenService.HashRefreshToken(presentedRefreshToken);
+            var userId = _tokenService.GetUserIdFromToken(refreshToken);
 
-            if (appUser.RefreshTokenMetaData?.TokenHash == null || appUser.RefreshTokenMetaData?.TokenHash != hashedPresentedToken) {
-                throw new UnauthorizedAccessException("Invalid Refresh Token");
+            // Retrieve the ApplicationUser by user ID
+            var appUser = await _applicationUserRepository.GetByIdAsync(userId);
+            if (appUser == null) {
+                throw new InvalidOperationException("User not found");
             }
 
-            string token = _tokenService.GenerateJwtToken(appUser);
-            var newRefreshToken = _tokenService.GenerateRefreshToken();
+            // Validate the incoming refresh token to ensure it's still valid
+            var isValid = _tokenService.ValidateRefreshToken(refreshToken);
+            if (!isValid) {
+                throw new SecurityTokenException("Invalid refresh token");
+            }
 
-            appUser.RefreshTokenHash = _tokenService.HashRefreshToken(newRefreshToken.Token);
+            // Rotate the refresh token (invalidate the old, issue a new one)
+            var issuedTokens = _tokenService.IssueTokens(appUser);
 
-            _applicationUserRepository.SaveChangesAsync();
-            // Save changes to the ApplicationUser
-            // _applicationUserRepository.Update(appUser);
-            // await _applicationUserRepository.SaveChangesAsync();
-
+            // Prepare and return the response
             return new UserResponseDTO {
-                Id = appUser.Id,
+                Id = appUser.Id.ToString(), // Ensure the ID is properly formatted as needed
                 FirstName = appUser.FirstName,
                 LastName = appUser.LastName,
                 Email = appUser.Email,
-                AccessToken = token,
-                RefreshToken = newRefreshToken.Token
+                AccessToken = issuedTokens.AccessToken,
+                RefreshToken = issuedTokens.RefreshToken
             };
         }
+
 
         public Task<bool> SaveChangesAsync()
         {

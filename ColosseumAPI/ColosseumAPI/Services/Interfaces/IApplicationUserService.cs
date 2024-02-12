@@ -9,7 +9,7 @@ namespace ColosseumAPI.Services.Interfaces
     {
         Task<ApplicationUser> AuthenticateOrRegisterUser(GoogleJsonWebSignature.Payload payload);
         Task<UserResponseDTO> GoogleSignInAsync(string googleToken);
-        UserResponseDTO RefreshToken(ApplicationUser appUser);
+        Task<UserResponseDTO> RefreshToken(string refreshToken);
         Task<bool> SaveChangesAsync();
         Task<GoogleJsonWebSignature.Payload?> VerifyGoogleTokenAsync(string token);
     }

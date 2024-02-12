@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ColosseumAPI.Repositories
 {
-    public class ApplicationUserRepository(AppDbContext context) : IApplicationUserRepository
+    public class ApplicationUserRepository(AppDbContext context) :IApplicationUserRepository
     {
         private readonly AppDbContext _context = context;
 
@@ -20,14 +20,16 @@ namespace ColosseumAPI.Repositories
             return await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
         }
 
-        public async Task<ApplicationUser?> GetByRefreshTokenAsync(string refreshToken)
+        public async Task<ApplicationUser> GetByIdAsync(Guid appUserId)
         {
-            if (refreshToken == null)
-            {
-                return null;
+            var user = await _context.ApplicationUsers
+                                 .FirstOrDefaultAsync(u => u.Id == appUserId.ToString());
+
+            if (user == null) {
+                throw new KeyNotFoundException($"User with ID {appUserId} not found.");
             }
 
-            return await _context.Users.FirstOrDefaultAsync(u => u.RefreshToken != null && u.RefreshToken.Token == refreshToken);
+            return user;
         }
 
         public async Task<bool> SaveChangesAsync()

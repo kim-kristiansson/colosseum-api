@@ -51,13 +51,7 @@ namespace ColosseumAPI.Controllers
                     return BadRequest("Refresh token is required.");
                 }
 
-                var appUser = await _applicationUserRepository.GetByRefreshTokenAsync(refreshTokenRequest.Token);
-
-                if (appUser == null) {
-                    return Unauthorized("User not found or invalid refresh token.");
-                }
-
-                var userResponse = _applicationUserService.RefreshToken(appUser);
+                var userResponse = await _applicationUserService.RefreshToken(refreshTokenRequest.Token);
                 return Ok(userResponse);
             }
             catch (UnauthorizedAccessException ex) {
