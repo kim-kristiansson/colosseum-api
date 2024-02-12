@@ -1,11 +1,7 @@
 ﻿using ColosseumAPI.DTOs;
-using ColosseumAPI.Models;
 using ColosseumAPI.Repositories.Interfaces;
-using ColosseumAPI.Services;
 using ColosseumAPI.Services.Interfaces;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
 
 namespace ColosseumAPI.Controllers
 {
