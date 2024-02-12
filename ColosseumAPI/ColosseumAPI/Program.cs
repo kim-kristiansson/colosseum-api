@@ -7,8 +7,11 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ColosseumAPI.Repositories;
 using StackExchange.Redis;
-using Microsoft.Extensions.Configuration;
 using AspNetCoreRateLimit;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -60,6 +63,19 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options => {
 })
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(options => {
+            options.TokenValidationParameters = new TokenValidationParameters {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("YourSecretKey")),
+                ValidateIssuer = true,
+                ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
+                ValidateAudience = true,
+                ValidAudiences = new List<string> { "ColosseumAPI", "AtleticusAPI" },
+            };
+        });
+
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
