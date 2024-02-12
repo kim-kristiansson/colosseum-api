@@ -7,10 +7,9 @@ namespace ColosseumAPI.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class AuthenticationController(IApplicationUserService applicationUserService, IApplicationUserRepository applicationUserRepository, ILogger<AuthenticationController> logger) :ControllerBase
+    public class AuthenticationController(IApplicationUserService applicationUserService, ILogger<AuthenticationController> logger) :ControllerBase
     {
         private readonly IApplicationUserService _applicationUserService = applicationUserService;
-        private readonly IApplicationUserRepository _applicationUserRepository = applicationUserRepository;
         private readonly ILogger<AuthenticationController> _logger = logger;
 
         [HttpPost("google-signin")]
