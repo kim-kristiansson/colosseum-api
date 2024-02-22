@@ -11,6 +11,7 @@ using AspNetCoreRateLimit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using ColosseumAPI.Extensions;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -46,36 +47,8 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options => {
-    // Password settings
-    options.Password.RequireDigit = true;
-    options.Password.RequiredLength = 8;
-    options.Password.RequireUppercase = true;
-    options.Password.RequireLowercase = true;
-
-    // Lockout settings
-    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(30);
-    options.Lockout.MaxFailedAccessAttempts = 5;
-    options.Lockout.AllowedForNewUsers = true;
-
-    // User settings
-    options.User.RequireUniqueEmail = true;
-})
-    .AddEntityFrameworkStores<AppDbContext>()
-    .AddDefaultTokenProviders();
-
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-        .AddJwtBearer(options => {
-            options.TokenValidationParameters = new TokenValidationParameters {
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("YourSecretKey")),
-                ValidateIssuer = true,
-                ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
-                ValidateAudience = true,
-                ValidAudiences = new List<string> { "ColosseumAPI", "AtleticusAPI" },
-            };
-        });
-
+builder.Services.AddIdentityServices();
+builder.Services.AddJwtAuthentication(builder.Configuration);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
