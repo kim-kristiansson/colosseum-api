@@ -26,7 +26,5 @@ namespace ColosseumAPI.Services
             var key = $"valid_refresh_tokens:{userId}";
             _db.KeyDelete(key);
         }
-
     }
-
 }
